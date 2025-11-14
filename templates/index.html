@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Train & Predict Next Year</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; }
+    .card { max-width: 640px; padding: 24px; border: 1px solid #ddd; border-radius: 8px; }
+    .row { margin: 12px 0; }
+    .status { margin-top: 16px; padding: 12px; border-radius: 6px; }
+    .ok { background: #e6ffed; border: 1px solid #b7eb8f; }
+    .err { background: #fff2f0; border: 1px solid #ffa39e; }
+  </style>
+  <script>
+    async function submitCsv(event) {
+      event.preventDefault();
+      const fileInput = document.getElementById('csvFile');
+      const statusBox = document.getElementById('status');
+      statusBox.className = 'status';
+      statusBox.textContent = '';
+      if (!fileInput.files.length) {
+        statusBox.classList.add('err');
+        statusBox.textContent = 'Please choose a CSV file.';
+        return;
+      }
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+      try {
+        const res = await fetch('http://127.0.0.1:5000/train_predict_next_year', { method: 'POST', body: formData });
+        const json = await res.json();
+        if (!res.ok) {
+          statusBox.classList.add('err');
+          statusBox.textContent = json.error || 'Request failed.';
+        } else {
+          statusBox.classList.add('ok');
+          statusBox.textContent = `Year: ${json.year || 'N/A'} | Total Admitted Prediction: ${json.total_admitted_prediction}`;
+        }
+      } catch (e) {
+        statusBox.classList.add('err');
+        statusBox.textContent = 'Network error.';
+      }
+    }
+  </script>
+</head>
+<body>
+  <div class="card">
+    <h1>Train → Predict Next Year</h1>
+    <p>Upload <code>dataset.csv</code> with the required columns to train and instantly predict the next year.</p>
+    <form onsubmit="submitCsv(event)">
+      <div class="row">
+        <input type="file" id="csvFile" name="file" accept=".csv" />
+      </div>
+      <button type="submit">Train & Predict</button>
+    </form>
+    <div id="status" class="status"></div>
+    <div class="row">
+      <details>
+        <summary>Required columns</summary>
+        <pre>Year, Unemployment_Rate, Num_Competing_Schools,
+Applicants_Business_Accountancy, Applicants_Nursing, Applicants_Tuition_Based,
+Applicants_Hospitality, Applicants_Engineering, Applicants_Computer_Studies,
+Applicants_Education, Applicants_Within_City, Applicants_Outside_City,
+Admission_Rate_Last_Year, Total_Admitted</pre>
+      </details>
+    </div>
+  </div>
+</body>
+</html>
