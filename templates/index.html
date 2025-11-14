@@ -1,16 +1,42 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Train & Predict Next Year</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 40px; }
-    .card { max-width: 640px; padding: 24px; border: 1px solid #ddd; border-radius: 8px; }
-    .row { margin: 12px 0; }
-    .status { margin-top: 16px; padding: 12px; border-radius: 6px; }
-    .ok { background: #e6ffed; border: 1px solid #b7eb8f; }
-    .err { background: #fff2f0; border: 1px solid #ffa39e; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+    }
+
+    .card {
+      max-width: 640px;
+      padding: 24px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+
+    .row {
+      margin: 12px 0;
+    }
+
+    .status {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 6px;
+    }
+
+    .ok {
+      background: #e6ffed;
+      border: 1px solid #b7eb8f;
+    }
+
+    .err {
+      background: #fff2f0;
+      border: 1px solid #ffa39e;
+    }
   </style>
   <script>
     async function submitCsv(event) {
@@ -43,6 +69,7 @@
     }
   </script>
 </head>
+
 <body>
   <div class="card">
     <h1>Train → Predict Next Year</h1>
@@ -66,4 +93,5 @@ Admission_Rate_Last_Year, Total_Admitted</pre>
     </div>
   </div>
 </body>
+
 </html>
