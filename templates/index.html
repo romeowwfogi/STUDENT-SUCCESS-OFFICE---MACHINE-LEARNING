@@ -27,7 +27,7 @@
       const formData = new FormData();
       formData.append('file', fileInput.files[0]);
       try {
-        const res = await fetch('http://127.0.0.1:5000/train_predict_next_year', { method: 'POST', body: formData });
+        const res = await fetch('https://student-success-office-machine-learning.onrender.com/train_predict_next_year', { method: 'POST', body: formData });
         const json = await res.json();
         if (!res.ok) {
           statusBox.classList.add('err');
