@@ -4,7 +4,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 import numpy as np
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from io import StringIO
 import traceback
 from flask_cors import CORS
@@ -162,11 +162,7 @@ def get_prediction():
 
 @app.route('/', methods=['GET'])
 def home():
-    status = "Trained" if is_model_trained else "Not Trained"
-    return jsonify({
-        "api_status": "Ready",
-        "model_status": status
-    }), 200
+    return render_template('index.html')
 
 if __name__ == '__main__':
     app.run(debug=True)

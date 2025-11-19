@@ -2,5 +2,6 @@ flask
 pandas
 scikit-learn
 numpy
+render_template
 flask-cors
 gunicorn
