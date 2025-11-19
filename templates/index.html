@@ -2,96 +2,367 @@
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Train & Predict Next Year</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 40px;
-    }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Success Office - Admission Prediction</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 
-    .card {
-      max-width: 640px;
-      padding: 24px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-    }
-
-    .row {
-      margin: 12px 0;
-    }
-
-    .status {
-      margin-top: 16px;
-      padding: 12px;
-      border-radius: 6px;
-    }
-
-    .ok {
-      background: #e6ffed;
-      border: 1px solid #b7eb8f;
-    }
-
-    .err {
-      background: #fff2f0;
-      border: 1px solid #ffa39e;
-    }
-  </style>
   <script>
-    async function submitCsv(event) {
-      event.preventDefault();
-      const fileInput = document.getElementById('csvFile');
-      const statusBox = document.getElementById('status');
-      statusBox.className = 'status';
-      statusBox.textContent = '';
-      if (!fileInput.files.length) {
-        statusBox.classList.add('err');
-        statusBox.textContent = 'Please choose a CSV file.';
-        return;
-      }
-      const formData = new FormData();
-      formData.append('file', fileInput.files[0]);
-      try {
-        const res = await fetch('https://sso-prediction-admission.onrender.com/train_predict_next_year', { method: 'POST', body: formData });
-        const json = await res.json();
-        if (!res.ok) {
-          statusBox.classList.add('err');
-          statusBox.textContent = json.error || 'Request failed.';
-        } else {
-          statusBox.classList.add('ok');
-          statusBox.textContent = `Year: ${json.year || 'N/A'} | Total Admitted Prediction: ${json.total_admitted_prediction}`;
+    tailwind.config = {
+      theme: {
+        fontFamily: {
+          sans: ['Nunito', 'sans-serif'],
+        },
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfdf5',  /* Very Light Mint */
+              100: '#d1fae5', /* Light Mint */
+              500: '#10b981', /* Emerald Primary */
+              600: '#059669', /* Emerald Dark */
+              900: '#064e3b', /* Deep Forest */
+            },
+            accent: {
+              light: '#f0fdf4',
+              dark: '#15803d',
+            }
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.5s ease-out',
+          },
+          keyframes: {
+            fadeIn: {
+              '0%': { opacity: '0', transform: 'translateY(10px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            }
+          }
         }
-      } catch (e) {
-        statusBox.classList.add('err');
-        statusBox.textContent = 'Network error.';
       }
     }
   </script>
+
+  <style>
+    /* Soft Green Gradient Background */
+    body {
+      background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+      color: #334155;
+      /* Slate-700 text for readability */
+    }
+
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+    }
+
+    /* Green Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #86efac;
+      border-radius: 4px;
+    }
+
+    /* Green-300 */
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4ade80;
+    }
+
+    /* Green-400 */
+  </style>
 </head>
 
-<body>
-  <div class="card">
-    <h1>Train → Predict Next Year</h1>
-    <p>Upload <code>dataset.csv</code> with the required columns to train and instantly predict the next year.</p>
-    <form onsubmit="submitCsv(event)">
-      <div class="row">
-        <input type="file" id="csvFile" name="file" accept=".csv" />
+<body class="min-h-screen flex items-center justify-center p-4 sm:p-6">
+
+  <div class="w-full max-w-3xl space-y-6 animate-fade-in">
+
+    <header class="text-center space-y-2">
+      <h1 class="text-4xl font-extrabold text-brand-900 tracking-tight">Admissions Predictor</h1>
+      <p class="text-lg text-brand-900/60 max-w-lg mx-auto">Upload your data and watch your enrollment grow.</p>
+    </header>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div class="bg-white p-5 rounded-2xl shadow-sm border border-brand-100 flex flex-col justify-between">
+        <div class="flex items-center space-x-2 text-brand-600/60 mb-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+          </svg>
+          <span class="text-sm font-bold uppercase tracking-wider">System Status</span>
+        </div>
+        <p id="model-status" class="text-2xl font-bold text-gray-400">Checking...</p>
       </div>
-      <button type="submit">Train & Predict</button>
-    </form>
-    <div id="status" class="status"></div>
-    <div class="row">
-      <details>
-        <summary>Required columns</summary>
-        <pre>Year, Unemployment_Rate, Num_Competing_Schools,
-Applicants_Business_Accountancy, Applicants_Nursing, Applicants_Tuition_Based,
-Applicants_Hospitality, Applicants_Engineering, Applicants_Computer_Studies,
-Applicants_Education, Applicants_Within_City, Applicants_Outside_City,
-Admission_Rate_Last_Year, Total_Admitted</pre>
-      </details>
+
+      <div class="bg-white p-5 rounded-2xl shadow-sm border border-brand-100 flex flex-col justify-between">
+        <div class="flex items-center space-x-2 text-brand-600/60 mb-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
+            </path>
+          </svg>
+          <span class="text-sm font-bold uppercase tracking-wider">Model Accuracy (R²)</span>
+        </div>
+        <p id="r2-metric" class="text-2xl font-bold text-gray-800 font-mono">-</p>
+      </div>
     </div>
+
+    <section class="glass-panel p-8 rounded-3xl shadow-xl shadow-brand-900/5 ring-1 ring-black/5">
+      <form id="predictForm" onsubmit="handlePredict(event)" class="space-y-8">
+
+        <div class="space-y-3">
+          <label class="block text-sm font-bold text-brand-900 ml-1">
+            Step 1: Training Data
+            <span class="font-normal text-brand-600/70 ml-2">(Upload CSV if model is untrained)</span>
+          </label>
+          <div class="relative group">
+            <input type="file" id="dataset_file" accept=".csv"
+              class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onchange="updateFileName(this)">
+            <div
+              class="border-2 border-dashed border-brand-200 rounded-2xl p-6 bg-brand-50/50 transition-all group-hover:border-brand-500 group-hover:bg-brand-50 flex flex-col items-center justify-center text-center">
+              <div class="p-3 bg-white rounded-full shadow-sm mb-3 ring-1 ring-brand-100">
+                <svg class="w-8 h-8 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+              </div>
+              <p id="file-label-text" class="text-sm font-medium text-brand-900/70 group-hover:text-brand-700">
+                Click to upload or drag and drop CSV
+              </p>
+              <p class="text-xs text-brand-400 mt-1">Required columns: College_Name, Academic_Year, etc.</p>
+            </div>
+          </div>
+        </div>
+
+        <hr class="border-brand-100">
+
+        <div class="space-y-4">
+          <label class="block text-sm font-bold text-brand-900 ml-1">Step 2: Enter Details</label>
+
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg class="h-5 w-5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4">
+                </path>
+              </svg>
+            </div>
+            <select id="college_name" required
+              class="pl-10 w-full px-4 py-3 bg-white border border-brand-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-shadow appearance-none text-gray-700">
+              <option value="" disabled selected>Select Program...</option>
+              <option value="BACHELOR OF SCIENCE IN ACCOUNTACY (BSA)">BS Accountancy (BSA)</option>
+              <option value="BACHELOR OF SCIENCE IN BUSINESS ADMINISTRATION (BSBA)">BS Business Admin (BSBA)</option>
+              <option value="BACHELOR OF SCIENCE IN ENTREPRENEURSHIP (BSENT)">BS Entrepreneurship (BSENT)</option>
+              <option value="BACHELOR OF SCIENCE IN HOSPITALITY MANAGEMENT (BSHM)">BS Hospitality Mgmt (BSHM)</option>
+              <option value="BACHELOR OF SECONDARY EDUCATION MAJOR IN FILIPINO (BSED-FIL)">BSED Filipino</option>
+              <option value="BACHELOR OF SECONDARY EDUCATION MAJOR IN ENGLISH (BSED-ENG)">BSED English</option>
+              <option value="BACHELOR OF SECONDARY EDUCATION MAJOR IN MATH (BSED MATH)">BSED Math</option>
+              <option value="BACHELOR OF ELEMENTARY EDUCATION (BEED)">Elem. Education (BEED)</option>
+              <option value="BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY (BSIT)">BS Info Tech (BSIT)</option>
+              <option value="BACHELOR OF SCIENCE IN COMPUTER SCIENCE (BSCS)">BS Computer Science (BSCS)</option>
+              <option value="BACHELOR OF SCIENCE IN ELECTRONICS COMMUNICATION ENGINEERING (BSECE)">BS ECE</option>
+              <option value="BACHELOR OF SCIENCE IN NURSING (BSN)">BS Nursing (BSN)</option>
+            </select>
+            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+              <svg class="h-5 w-5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </div>
+          </div>
+
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg class="h-5 w-5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+              </svg>
+            </div>
+            <input type="text" id="academic_year" placeholder="Target Academic Year (e.g., 2025–2026)" required
+              class="pl-10 w-full px-4 py-3 bg-white border border-brand-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-shadow">
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="space-y-1">
+              <label class="text-xs font-bold text-brand-500 uppercase ml-1">Unemp. Rate</label>
+              <input type="number" step="0.01" id="unemployment_rate" placeholder="e.g. 3.5" required
+                class="w-full px-4 py-3 bg-white border border-brand-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-shadow text-center">
+            </div>
+            <div class="space-y-1">
+              <label class="text-xs font-bold text-brand-500 uppercase ml-1">Comp. Schools</label>
+              <input type="number" id="num_competing_schools" placeholder="e.g. 12" required
+                class="w-full px-4 py-3 bg-white border border-brand-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-shadow text-center">
+            </div>
+            <div class="space-y-1">
+              <label class="text-xs font-bold text-brand-500 uppercase ml-1">Prev. Rate</label>
+              <input type="number" step="0.01" id="admission_rate_last_year" placeholder="e.g. 0.85" required
+                class="w-full px-4 py-3 bg-white border border-brand-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-shadow text-center">
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" id="predict-button"
+          class="w-full py-4 px-6 bg-gradient-to-r from-brand-600 to-brand-500 text-white font-bold rounded-xl shadow-lg shadow-brand-500/30 hover:shadow-brand-500/50 transform hover:-translate-y-0.5 transition-all duration-200 focus:ring-4 focus:ring-brand-200 flex items-center justify-center space-x-2">
+          <span>Run Prediction</span>
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+          </svg>
+        </button>
+
+      </form>
+    </section>
+
+    <div id="predict-result" class="hidden transform transition-all duration-500 ease-out">
+    </div>
+
+    <div id="toast-container" class="fixed top-6 right-6 z-50 space-y-3"></div>
+
   </div>
+
+  <script>
+    const API_BASE_URL = 'http://127.0.0.1:5000';
+
+    // --- UI Helpers ---
+
+    function updateFileName(input) {
+      const label = document.getElementById('file-label-text');
+      if (input.files && input.files.length > 0) {
+        label.textContent = `Selected: ${input.files[0].name}`;
+        label.classList.add('text-brand-600', 'font-bold');
+      } else {
+        label.textContent = 'Click to upload or drag and drop CSV';
+        label.classList.remove('text-brand-600', 'font-bold');
+      }
+    }
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const el = document.createElement('div');
+
+      // Use Brand colors for success, standard Red for error
+      const bg = type === 'success' ? 'bg-brand-50 border-brand-500 text-brand-900' : 'bg-red-50 border-red-500 text-red-700';
+      const icon = type === 'success' ? '🌿' : '⚠️';
+
+      el.className = `${bg} border-l-4 p-4 rounded-lg shadow-lg flex items-center space-x-3 min-w-[300px] animate-fade-in`;
+      el.innerHTML = `
+        <span class="text-xl">${icon}</span>
+        <div>
+            <p class="font-bold text-sm uppercase opacity-80">${type}</p>
+            <p class="text-sm font-medium">${message}</p>
+        </div>
+      `;
+
+      container.appendChild(el);
+      setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateX(100%)';
+        setTimeout(() => el.remove(), 300);
+      }, 5000);
+    }
+
+    // --- API Logic ---
+
+    async function updateStatus() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/`);
+        const data = await response.json();
+
+        const statusElement = document.getElementById('model-status');
+
+        if (data.model_status === "Trained") {
+          statusElement.textContent = "Ready";
+          statusElement.className = "text-2xl font-bold text-brand-600"; // Green text
+        } else {
+          statusElement.textContent = "Needs Training";
+          statusElement.className = "text-2xl font-bold text-amber-500";
+        }
+      } catch (error) {
+        const statusElement = document.getElementById('model-status');
+        statusElement.textContent = "Offline";
+        statusElement.className = "text-2xl font-bold text-red-400";
+      }
+    }
+
+    async function handlePredict(event) {
+      event.preventDefault();
+
+      const resultDiv = document.getElementById('predict-result');
+      const button = document.getElementById('predict-button');
+      const fileInput = document.getElementById('dataset_file');
+      const originalBtnContent = button.innerHTML;
+
+      // 1. Set Loading State
+      button.disabled = true;
+      button.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Processing...`;
+
+      resultDiv.classList.add('hidden');
+
+      try {
+        const formData = new FormData();
+
+        if (fileInput.files.length > 0) {
+          formData.append('dataset_file', fileInput.files[0]);
+        }
+
+        formData.append('College_Name', document.getElementById('college_name').value.toUpperCase());
+        formData.append('Academic_Year', document.getElementById('academic_year').value);
+        formData.append('Unemployment_Rate', document.getElementById('unemployment_rate').value);
+        formData.append('Num_Competing_Schools', document.getElementById('num_competing_schools').value);
+        formData.append('Admission_Rate_Last_Year', document.getElementById('admission_rate_last_year').value);
+
+        const response = await fetch(`${API_BASE_URL}/predict`, {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          // Display Result with GREEN gradient
+          resultDiv.innerHTML = `
+                <div class="bg-gradient-to-r from-brand-600 to-brand-500 rounded-3xl p-8 text-white shadow-xl shadow-brand-900/20 text-center relative overflow-hidden">
+                    <div class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full"></div>
+                    <div class="absolute bottom-0 left-0 -mb-4 -ml-4 w-20 h-20 bg-white opacity-10 rounded-full"></div>
+                    
+                    <p class="text-brand-100 font-semibold uppercase tracking-wide mb-2">Prediction Result</p>
+                    <h2 class="text-5xl font-extrabold mb-1 tracking-tight">${data.predicted_total_admitted}</h2>
+                    <p class="text-white/90 text-lg font-medium">Students Admitted</p>
+                    
+                    <div class="mt-6 border-t border-white/20 pt-4 flex justify-center space-x-6 text-sm text-brand-50">
+                        <span class="flex items-center"><span class="mr-1 opacity-60">PROGRAM:</span> ${data.college_name}</span>
+                        <span class="flex items-center"><span class="mr-1 opacity-60">YEAR:</span> ${data.academic_year}</span>
+                    </div>
+                </div>
+            `;
+          resultDiv.classList.remove('hidden');
+
+          if (data.training_metrics) {
+            showToast('Model trained successfully!');
+            document.getElementById('r2-metric').textContent = data.training_metrics.r2_score.toFixed(2);
+            document.getElementById('model-status').textContent = "Ready";
+            document.getElementById('model-status').className = "text-2xl font-bold text-brand-600";
+          } else {
+            showToast('Prediction Complete');
+          }
+
+        } else {
+          throw new Error(data.error);
+        }
+
+      } catch (error) {
+        showToast(error.message || "Connection failed", 'error');
+      } finally {
+        button.disabled = false;
+        button.innerHTML = originalBtnContent;
+      }
+    }
+
+    window.onload = updateStatus;
+  </script>
 </body>
 
 </html>

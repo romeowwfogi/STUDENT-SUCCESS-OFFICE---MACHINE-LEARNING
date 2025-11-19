@@ -1,151 +1,172 @@
 import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error, r2_score
 import numpy as np
-from flask import Flask, request, jsonify, render_template
-from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LinearRegression
-from sklearn.decomposition import PCA
-import warnings
-
-# Suppress warnings for cleaner output
-warnings.filterwarnings('ignore')
+from flask import Flask, request, jsonify
+from io import StringIO
+import traceback
+from flask_cors import CORS
 
 # --- Global Variables ---
-# We will train these models once when the app starts
-model = LinearRegression()
-scaler = StandardScaler()
-pca = PCA(n_components=5)
-feature_columns = []
-is_trained = False
-last_df = None
+model = None
+encoder = LabelEncoder()
+is_model_trained = False
+cached_metrics = {}
 
-def train_model(file):
-    df = pd.read_csv(file)
-    global feature_columns
-    Y = df["Total_Admitted"]
-    X = df.drop(columns=["Total_Admitted", "Year"])
-    feature_columns = X.columns.tolist()
-    global scaler
-    X_scaled = scaler.fit_transform(X)
-    global pca
-    X_pca = pca.fit_transform(X_scaled)
-    global model
-    model.fit(X_pca, Y)
-    global is_trained
-    is_trained = True
-    global last_df
-    last_df = df
+# Define the exact columns required for training
+REQUIRED_COLUMNS = set([
+    'College_Name',
+    'Academic_Year',
+    'Unemployment_Rate',
+    'Num_Competing_Schools',
+    'Admission_Rate_Last_Year',
+    'Total_Admitted' 
+])
 
+# Define the features the model expects
+MODEL_FEATURES = [
+    'College_ID',
+    'Academic_Year_Num',
+    'Unemployment_Rate',
+    'Num_Competing_Schools',
+    'Admission_Rate_Last_Year'
+]
 
-# --- Flask App Initialization ---
 app = Flask(__name__)
+CORS(app)
 
-@app.route('/')
-def home():
-    return render_template('index.html')
+def preprocess_and_train(df):
+    """
+    Performs data preprocessing, training, and evaluation.
+    Updates the global 'model' and 'encoder' variables.
+    """
+    global model, encoder, is_model_trained
 
-@app.route('/train_predict_next_year', methods=['POST'])
-def train_predict_next_year():
+    # 1. Label Encoding for College_Name
     try:
-        if 'file' not in request.files:
-            return jsonify({"error": "No file part"}), 400
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({"error": "No selected file"}), 400
-        df = pd.read_csv(file)
-        required = [
-            'Year','Unemployment_Rate','Num_Competing_Schools','Applicants_Business_Accountancy','Applicants_Nursing',
-            'Applicants_Tuition_Based','Applicants_Hospitality','Applicants_Engineering','Applicants_Computer_Studies',
-            'Applicants_Education','Applicants_Within_City','Applicants_Outside_City','Admission_Rate_Last_Year','Total_Admitted'
-        ]
-        missing = [c for c in required if c not in df.columns]
-        if missing:
-            return jsonify({"error": f"Missing columns: {missing}"}), 400
-        global feature_columns
-        Y = df['Total_Admitted']
-        X = df.drop(columns=['Total_Admitted','Year'])
-        feature_columns = X.columns.tolist()
-        global scaler
-        X_scaled = scaler.fit_transform(X)
-        global pca
-        X_pca = pca.fit_transform(X_scaled)
-        global model
-        model.fit(X_pca, Y)
-        global is_trained
-        is_trained = True
-        if 'Year' in df.columns:
-            last_year_str = str(df['Year'].iloc[-1])
+        # Fit encoder on the CSV data
+        df['College_ID'] = encoder.fit_transform(df['College_Name'])
+    except Exception as e:
+        return None, f"Error during College_Name encoding: {str(e)}"
+
+    # 2. Feature Engineering
+    try:
+        df['Academic_Year_Num'] = df['Academic_Year'].astype(str).str[:4].astype(int)
+    except Exception as e:
+        return None, f"Error parsing 'Academic_Year' column: {str(e)}. Ensure format is 'YYYY–YYYY'."
+
+    # 3. Prepare features (X) and target (y)
+    X = df[MODEL_FEATURES]
+    y = df['Total_Admitted']
+
+    # 4. Train
+    # Note: We use all data for training since we retrain on every request or use cached model
+    model = RandomForestRegressor(n_estimators=300, random_state=42)
+    model.fit(X, y)
+    is_model_trained = True
+
+    # Calculate simple metrics on the training set just for display
+    predictions = model.predict(X)
+    r2 = r2_score(y, predictions)
+    rmse = np.sqrt(mean_squared_error(y, predictions))
+
+    return {
+        "rmse": float(rmse),
+        "r2_score": float(r2),
+        "total_records": len(df)
+    }, None
+
+
+@app.route('/predict', methods=['POST'])
+def get_prediction():
+    """
+    Unified Endpoint:
+    1. Checks if a 'dataset_file' is provided. If so, TRAINS the model first.
+    2. PREDICTS using the input fields.
+    """
+    global cached_metrics
+
+    # --- STEP 1: Check for Training Data ---
+    if 'dataset_file' in request.files:
+        file = request.files['dataset_file']
+        if file.filename != '':
             try:
-                start = int(str(last_year_str).split('-')[0])
-                next_start = start + 1
-                next_end = next_start + 1
-                next_year_str = f"{next_start}-{next_end}"
-            except Exception:
-                next_year_str = None
-        else:
-            next_year_str = None
-        next_features = {}
-        for col in feature_columns:
-            if len(df[col]) >= 2 and pd.api.types.is_numeric_dtype(df[col]):
-                diff = df[col].iloc[-1] - df[col].iloc[-2]
-                val = df[col].iloc[-1] + diff
-            else:
-                val = df[col].iloc[-1]
-            if pd.api.types.is_numeric_dtype(df[col]):
-                if str(col).lower().startswith('applicants') or str(col).lower().endswith('_city') or str(col).lower().endswith('schools'):
-                    val = max(val, 0)
-            next_features[col] = float(val) if isinstance(val, (int, float, np.number)) else val
-        input_df = pd.DataFrame([next_features], columns=feature_columns)
-        input_scaled = scaler.transform(input_df)
-        input_pca = pca.transform(input_scaled)
-        prediction = model.predict(input_pca)
-        return jsonify({
-            "year": next_year_str,
-            "total_admitted_prediction": float(prediction[0])
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+                # Train the model immediately
+                csv_data = StringIO(file.read().decode('utf-8'))
+                df = pd.read_csv(csv_data)
+                
+                metrics, error = preprocess_and_train(df)
+                if error: return jsonify({"error": error}), 500
+                cached_metrics = metrics
+            except Exception as e:
+                return jsonify({"error": f"Failed to process CSV: {str(e)}"}), 500
+    
+    # Check if model exists (either from previous run or just trained above)
+    if not is_model_trained or model is None:
+        return jsonify({"error": "Model is not trained. Please include a CSV file in your request."}), 400
 
-@app.route("/predict", methods=["POST"])
-def predict():
-    """
-    The main prediction endpoint.
-    Expects JSON data with keys matching the feature columns.
-    """
+    # --- STEP 2: Perform Prediction ---
     try:
-        if not is_trained:
-            return jsonify({"error": "Model not trained. Upload a CSV to /upload."}), 400
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No input data provided"}), 400
+        # When using FormData (multipart/form-data), we use request.form instead of request.get_json()
+        data = request.form 
 
-        # Create a DataFrame from the input JSON
-        # This ensures the features are in the correct order as defined by feature_columns
-        input_df = pd.DataFrame([data], columns=feature_columns)
+        required_inputs = ['College_Name', 'Academic_Year', 'Unemployment_Rate', 'Num_Competing_Schools', 'Admission_Rate_Last_Year']
+        for key in required_inputs:
+            if key not in data:
+                return jsonify({"error": f"Missing required input parameter: '{key}'"}), 400
 
-        # Check for missing values (if user didn't provide all features)
-        if input_df.isnull().values.any():
-            missing_cols = input_df.columns[input_df.isnull().any()].tolist()
-            return jsonify({"error": f"Missing feature(s) in input data: {missing_cols}"}), 400
+        college_name = data['College_Name']
+        academic_year = data['Academic_Year']
+        unemployment_rate = float(data['Unemployment_Rate'])
+        num_competing_schools = int(data['Num_Competing_Schools'])
+        admission_rate_last_year = float(data['Admission_Rate_Last_Year'])
 
-        # --- Apply the FULL prediction pipeline ---
-        # 1. Scale the input data using the *fitted* scaler
-        input_scaled = scaler.transform(input_df)
+        # Encode College Name safely
+        try:
+            if college_name not in encoder.classes_:
+                return jsonify({"error": f"College Name '{college_name}' not found in the uploaded CSV."}), 400
+            college_id = encoder.transform([college_name])[0]
+        except ValueError:
+            return jsonify({"error": f"College Name encoding error."}), 400
 
-        # 2. Apply PCA using the *fitted* PCA object
-        input_pca = pca.transform(input_scaled)
+        try:
+            academic_year_num = int(str(academic_year)[:4])
+        except Exception:
+            return jsonify({"error": "Invalid Academic Year format"}), 400
 
-        # 3. Make a prediction using the *fitted* model
-        prediction = model.predict(input_pca)
+        input_features = [
+            college_id,
+            academic_year_num,
+            unemployment_rate,
+            num_competing_schools,
+            admission_rate_last_year
+        ]
 
-        # Return the prediction as JSON
+        predicted_admissions = model.predict(np.array([input_features]))[0]
+        rounded_prediction = int(np.round(predicted_admissions))
+
         return jsonify({
-            "total_admitted_prediction": prediction[0]
-        })
+            "status": "success",
+            "predicted_total_admitted": max(0, rounded_prediction),
+            "college_name": college_name,
+            "academic_year": academic_year,
+            "training_metrics": cached_metrics
+        }), 200
 
     except Exception as e:
-        # Generic error handler
-        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+        print(traceback.format_exc())
+        return jsonify({"error": f"Prediction error: {str(e)}"}), 500
 
-# --- Run the App ---
-if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+
+@app.route('/', methods=['GET'])
+def home():
+    status = "Trained" if is_model_trained else "Not Trained"
+    return jsonify({
+        "api_status": "Ready",
+        "model_status": status
+    }), 200
+
+if __name__ == '__main__':
+    app.run(debug=True)
